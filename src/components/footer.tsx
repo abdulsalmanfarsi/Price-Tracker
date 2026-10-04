@@ -26,8 +26,14 @@ export function Footer() {
           <Link href="/extension" className="hover:text-champagne transition-colors">
             Extension
           </Link>
-          <Link href="/about" className="hover:text-champagne transition-colors text-gold">
+          <Link href="/about" className="hover:text-champagne transition-colors">
             About Us
+          </Link>
+          <Link href="/privacy" className="hover:text-champagne transition-colors">
+            Privacy
+          </Link>
+          <Link href="/terms" className="hover:text-champagne transition-colors">
+            Terms
           </Link>
         </div>
 

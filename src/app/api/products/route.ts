@@ -2,12 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { supabase, getServiceSupabase } from '@/lib/supabase';
 import { validateAndSanitizeUrl, validateScrapedPrice, deriveTitleFromUrl } from '@/lib/security';
-import { scrapeAmazon } from '@scripts/scrapers/amazon';
-import { scrapeFlipkart } from '@scripts/scrapers/flipkart';
-import { scrapeMeesho } from '@scripts/scrapers/meesho';
-import { scrapeMyntra } from '@scripts/scrapers/myntra';
-import { scrapeAjio } from '@scripts/scrapers/ajio';
-import { scrapeWestside } from '@scripts/scrapers/westside';
+import { scrapeByPlatform } from '@scripts/scrapers/registry';
 import { AUTH_COOKIE_NAME, verifySessionToken } from '@/lib/auth';
 import { checkRateLimit } from '@/lib/rate-limit';
 
@@ -247,19 +242,7 @@ export async function POST(req: NextRequest) {
     // 3. Scrape initial price and details
     let scrapeRes;
     try {
-      if (platform === 'amazon') {
-        scrapeRes = await scrapeAmazon(cleanUrl);
-      } else if (platform === 'flipkart') {
-        scrapeRes = await scrapeFlipkart(cleanUrl);
-      } else if (platform === 'meesho') {
-        scrapeRes = await scrapeMeesho(cleanUrl);
-      } else if (platform === 'myntra') {
-        scrapeRes = await scrapeMyntra(cleanUrl);
-      } else if (platform === 'ajio') {
-        scrapeRes = await scrapeAjio(cleanUrl);
-      } else if (platform === 'westside') {
-        scrapeRes = await scrapeWestside(cleanUrl);
-      }
+      scrapeRes = await scrapeByPlatform(platform, cleanUrl);
     } catch (scrapeErr: unknown) {
       console.warn('Scraping error:', scrapeErr);
     }

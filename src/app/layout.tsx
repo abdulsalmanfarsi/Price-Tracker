@@ -12,9 +12,40 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'PriceWatcher - Multi-Store Price Tracker (Amazon, Flipkart, Meesho, Myntra, Ajio, Westside)',
+  metadataBase: new URL('https://ecommerce-price-watcher-puce.vercel.app'),
+  title: {
+    default: 'PriceWatcher — Multi-Store Price Intelligence & Surveillance',
+    template: '%s | PriceWatcher',
+  },
   description:
     'Real-time price monitoring and predictive analytics across India’s leading storefronts. Automated alerts via Telegram, WhatsApp, Discord, and Web Push.',
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    title: 'PriceWatcher — Multi-Store Price Intelligence & Surveillance',
+    description:
+      'Real-time price monitoring, predictive trajectory analysis, and instant drop alerts across Amazon, Flipkart, Meesho, Myntra, Ajio, and Westside.',
+    url: 'https://ecommerce-price-watcher-puce.vercel.app',
+    siteName: 'PriceWatcher Intelligence',
+    images: [
+      {
+        url: '/icon-512.png',
+        width: 512,
+        height: 512,
+        alt: 'PriceWatcher Intelligence Logo',
+      },
+    ],
+    locale: 'en_IN',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'PriceWatcher — Multi-Store Price Intelligence & Surveillance',
+    description:
+      'Automated price tracking and drop alerts across 6 storefronts with mathematical trajectory forecasting.',
+    images: ['/icon-512.png'],
+  },
   icons: {
     icon: [
       { url: '/favicon.ico' },

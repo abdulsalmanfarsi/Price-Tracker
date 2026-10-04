@@ -3,12 +3,7 @@ import { AUTH_COOKIE_NAME, verifySessionToken } from '@/lib/auth';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { getServiceSupabase } from '@/lib/supabase';
 import { supabase as publicSupabase } from '@/lib/supabase';
-import { scrapeAmazon } from '@scripts/scrapers/amazon';
-import { scrapeFlipkart } from '@scripts/scrapers/flipkart';
-import { scrapeMeesho } from '@scripts/scrapers/meesho';
-import { scrapeMyntra } from '@scripts/scrapers/myntra';
-import { scrapeAjio } from '@scripts/scrapers/ajio';
-import { scrapeWestside } from '@scripts/scrapers/westside';
+import { scrapeByPlatform } from '@scripts/scrapers/registry';
 import { delay } from '@scripts/scrapers/utils';
 import { dispatchAlerts, sendScraperFailureAlert, sendScraperStaleAlert } from '@scripts/notify';
 import { validateScrapedPrice } from '@/lib/security';
@@ -41,37 +36,50 @@ export async function POST(req: NextRequest) {
       // Body is optional
     }
 
-    // 1. Verify user session:
+    // 1. Verify user session or API secret:
     // Single product refresh is permitted for any authenticated session.
-    // Full batch scraper trigger is restricted strictly to rahulr24g@gmail.com / combined account.
+    // Full batch scraper trigger is restricted strictly to rahulr24g@gmail.com / combined account OR valid cron secret.
     const token = req.cookies.get(AUTH_COOKIE_NAME)?.value;
     const session = verifySessionToken(token || '');
 
-    if (!session) {
+    const watchdogSecret =
+      process.env.WATCHDOG_API_KEY ||
+      process.env.CRON_SECRET ||
+      process.env.AUTH_SECRET;
+    const authHeader = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '').trim();
+    const apiKeyParam = req.nextUrl.searchParams.get('key')?.trim();
+    const isApiKeyValid = Boolean(
+      watchdogSecret && (authHeader === watchdogSecret || apiKeyParam === watchdogSecret)
+    );
+
+    if (!session && !isApiKeyValid) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Unauthorized: Please log in to refresh prices.',
+          error: 'Unauthorized: Please log in or provide a valid authorization key to refresh prices.',
         },
         { status: 401 }
       );
     }
 
-    // Rate limit manual scraper triggers: max 6 triggers per minute
-    const rateKey = `rate:scraper:trigger:${session.userId || 'anon'}`;
-    const rateCheck = await checkRateLimit(rateKey, 6, 60);
-    if (!rateCheck.allowed) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Trigger rate limited. Please wait ${rateCheck.retryAfterSeconds} seconds before triggering again.`,
-        },
-        { status: 429, headers: { 'Retry-After': String(rateCheck.retryAfterSeconds) } }
-      );
+    // Rate limit manual scraper triggers: max 6 triggers per minute (skip for valid cron/api keys)
+    if (!isApiKeyValid) {
+      const rateKey = `rate:scraper:trigger:${session?.userId || 'anon'}`;
+      const rateCheck = await checkRateLimit(rateKey, 6, 60);
+      if (!rateCheck.allowed) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Trigger rate limited. Please wait ${rateCheck.retryAfterSeconds} seconds before triggering again.`,
+          },
+          { status: 429, headers: { 'Retry-After': String(rateCheck.retryAfterSeconds) } }
+        );
+      }
     }
 
     const adminEmail = getAdminEmail().toLowerCase().trim();
     const isAuthorized =
+      isApiKeyValid ||
       Boolean(session?.isCombined) ||
       session?.email?.toLowerCase().trim() === adminEmail;
 
@@ -149,7 +157,7 @@ export async function POST(req: NextRequest) {
     let checkedCount = 0;
     let priceDropCount = 0;
     let errorCount = 0;
-    const resultsSummary: Array<{ id: string; title: string; status: string; price?: number }> = [];
+    const resultsSummary: Array<{ id: string; title: string; status: string; price?: number; error?: string }> = [];
 
     // 5. Scrape each product with 2-attempt retry
     for (const product of products) {
@@ -161,21 +169,7 @@ export async function POST(req: NextRequest) {
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         attemptsMade = attempt;
         try {
-          if (product.platform === 'amazon') {
-            scrapeRes = await scrapeAmazon(product.url);
-          } else if (product.platform === 'flipkart') {
-            scrapeRes = await scrapeFlipkart(product.url);
-          } else if (product.platform === 'meesho') {
-            scrapeRes = await scrapeMeesho(product.url);
-          } else if (product.platform === 'myntra') {
-            scrapeRes = await scrapeMyntra(product.url);
-          } else if (product.platform === 'ajio') {
-            scrapeRes = await scrapeAjio(product.url);
-          } else if (product.platform === 'westside') {
-            scrapeRes = await scrapeWestside(product.url);
-          } else {
-            break;
-          }
+          scrapeRes = await scrapeByPlatform(product.platform, product.url);
         } catch (e: unknown) {
           scrapeRes = { success: false, error: String(e) };
         }
@@ -226,7 +220,7 @@ export async function POST(req: NextRequest) {
           to: getAdminEmail(),
         });
 
-        resultsSummary.push({ id: product.id, title: product.title, status: 'error' });
+        resultsSummary.push({ id: product.id, title: product.title, status: 'error', error: errorMessage });
         continue;
       }
 
@@ -254,7 +248,7 @@ export async function POST(req: NextRequest) {
           retryAttempts: attemptsMade,
           to: getAdminEmail(),
         });
-        resultsSummary.push({ id: product.id, title: product.title, status: 'sanity_failed' });
+        resultsSummary.push({ id: product.id, title: product.title, status: 'sanity_failed', error: sanityReason });
         continue;
       }
 

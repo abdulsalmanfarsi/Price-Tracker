@@ -29,9 +29,9 @@ export default function HomePage() {
   return (
     <div className="space-y-16 sm:space-y-24 py-4 sm:py-8">
       {/* Hero Section */}
-      <section className="relative text-center max-w-4xl mx-auto space-y-5 sm:space-y-7 pt-4 sm:pt-10">
+      <section className="relative text-center max-w-4xl mx-auto space-y-5 sm:space-y-7 pt-4 sm:pt-10 ambient-radial-glow pb-4">
         <div className="inline-flex items-center justify-center gap-2 px-3 py-1 rounded-sm bg-surface border border-surface-border text-champagne text-[11px] font-mono tracking-wide">
-          <span className="w-1.5 h-1.5 rounded-full bg-gold" />
+          <span className="w-1.5 h-1.5 rounded-full bg-gold animate-pulse" />
           <span>Multi-Store Price Intelligence • 6 Storefronts</span>
         </div>
 
@@ -52,7 +52,7 @@ export default function HomePage() {
         <div className="max-w-2xl mx-auto mt-6 space-y-3">
           <form
             onSubmit={handleQuickSubmit}
-            className="flex flex-col sm:flex-row items-center gap-2 bg-surface p-1.5 rounded-sm border border-surface-border focus-within:border-gold/50 transition-colors"
+            className="flex flex-col sm:flex-row items-center gap-2 bg-surface p-1.5 rounded-sm border border-surface-border focus-within:border-gold/50 transition-colors shadow-2xl shadow-gold/5"
           >
             <input
               type="url"
@@ -64,7 +64,7 @@ export default function HomePage() {
             />
             <button
               type="submit"
-              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gold hover:bg-gold-hover text-obsidian font-semibold px-5 py-2.5 rounded-sm text-xs sm:text-sm transition-colors whitespace-nowrap"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gold hover:bg-gold-hover text-obsidian font-semibold px-5 py-2.5 rounded-sm text-xs sm:text-sm transition-colors whitespace-nowrap active:scale-[0.98]"
             >
               <span>Track URL</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -84,15 +84,25 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Supported Platforms Strip */}
-        <div className="flex flex-wrap items-center justify-center gap-2 pt-3">
-          <span className="text-[11px] font-mono text-champagne-faint uppercase tracking-wider">Stores:</span>
-          <PlatformBadge platform="amazon" />
-          <PlatformBadge platform="flipkart" />
-          <PlatformBadge platform="meesho" />
-          <PlatformBadge platform="myntra" />
-          <PlatformBadge platform="ajio" />
-          <PlatformBadge platform="westside" />
+        {/* Supported Platforms Marquee Strip */}
+        <div className="pt-4 overflow-hidden border-y border-surface-border/50 py-3 mt-6">
+          <div className="animate-marquee flex items-center gap-4 text-xs font-mono">
+            <span className="text-[11px] font-mono text-champagne-faint uppercase tracking-wider mr-2">Monitored Networks:</span>
+            <PlatformBadge platform="amazon" />
+            <PlatformBadge platform="flipkart" />
+            <PlatformBadge platform="meesho" />
+            <PlatformBadge platform="myntra" />
+            <PlatformBadge platform="ajio" />
+            <PlatformBadge platform="westside" />
+            <span className="text-champagne-faint px-3">•</span>
+            <span className="text-[11px] font-mono text-champagne-faint uppercase tracking-wider mr-2">Monitored Networks:</span>
+            <PlatformBadge platform="amazon" />
+            <PlatformBadge platform="flipkart" />
+            <PlatformBadge platform="meesho" />
+            <PlatformBadge platform="myntra" />
+            <PlatformBadge platform="ajio" />
+            <PlatformBadge platform="westside" />
+          </div>
         </div>
       </section>
 
