@@ -25,6 +25,7 @@ import {
 import { Product, PriceHistoryItem } from '@/types';
 import { PlatformBadge } from '@/components/platform-badge';
 import { PriceChart } from '@/components/price-chart';
+import { CrossPlatformComparison } from '@/components/cross-platform-comparison';
 import { formatPrice, formatRelativeTime, calculateDiscount } from '@/lib/utils';
 
 export default function ProductDetailPage({ params }: { params: { id: string } }) {
@@ -543,6 +544,9 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
 
       {/* Price History Chart */}
       <PriceChart history={history} lowestPrice={product.lowest_price} />
+
+      {/* Cross-Platform Store Scanner & Lowest Price Recommendation */}
+      <CrossPlatformComparison product={product} onAddedProduct={fetchDetails} />
     </div>
   );
 }

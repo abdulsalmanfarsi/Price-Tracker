@@ -423,3 +423,120 @@ export function computeOptimalStopping(prices: number[]): OptimalStoppingDecisio
     calibrationWindow: calibrationSize,
   };
 }
+
+// ============================================================================
+// Cross-Platform Product Matching & Similarity Scoring
+// ============================================================================
+
+export interface ProductMatchCandidate {
+  title: string;
+  price: number;
+  brand?: string;
+  platform?: string;
+}
+
+export interface MatchScoreResult {
+  score: number; // 0 to 100
+  confidence: 'high' | 'medium' | 'low';
+  titleJaccard: number;
+  brandMatched: boolean;
+  priceDeltaPercent: number;
+}
+
+/**
+ * Calculates Token Jaccard similarity between two strings:
+ * J(A, B) = |A ∩ B| / |A ∪ B|
+ */
+export function calculateTokenJaccard(strA: string, strB: string): number {
+  if (!strA || !strB) return 0;
+  const setA = new Set(
+    strA
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 1)
+  );
+  const setB = new Set(
+    strB
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 1)
+  );
+
+  if (setA.size === 0 || setB.size === 0) return 0;
+
+  let intersection = 0;
+  for (const token of setA) {
+    if (setB.has(token)) {
+      intersection++;
+    }
+  }
+
+  const union = new Set([...setA, ...setB]).size;
+  return union === 0 ? 0 : intersection / union;
+}
+
+/**
+ * Computes a weighted multi-signal match score between an original tracked product
+ * and a discovered candidate from an alternative storefront.
+ */
+export function computeProductMatchScore(
+  source: ProductMatchCandidate,
+  candidate: ProductMatchCandidate
+): MatchScoreResult {
+  // 1. Title Jaccard Overlap (Weight: 45%)
+  const jaccard = calculateTokenJaccard(source.title, candidate.title);
+  const titlePoints = Math.min(45, jaccard * 60);
+
+  // 2. Brand Verification (Weight: 30%)
+  let brandMatched = false;
+  if (source.brand && candidate.brand) {
+    const sB = source.brand.trim().toLowerCase();
+    const cB = candidate.brand.trim().toLowerCase();
+    if (sB === cB || sB.includes(cB) || cB.includes(sB)) {
+      brandMatched = true;
+    }
+  } else if (source.brand) {
+    const sB = source.brand.trim().toLowerCase();
+    if (candidate.title.toLowerCase().includes(sB)) {
+      brandMatched = true;
+    }
+  }
+  const brandPoints = brandMatched ? 30 : 0;
+
+  // 3. Price Proximity Boundary (Weight: 25%)
+  // Candidates within ±40% receive full points. Above 90% difference drops to 0.
+  let priceDeltaPercent = 100;
+  let pricePoints = 0;
+  if (source.price > 0 && candidate.price > 0) {
+    priceDeltaPercent = Math.round(
+      (Math.abs(source.price - candidate.price) / source.price) * 100
+    );
+    if (priceDeltaPercent <= 25) {
+      pricePoints = 25;
+    } else if (priceDeltaPercent <= 50) {
+      pricePoints = 15;
+    } else if (priceDeltaPercent <= 80) {
+      pricePoints = 5;
+    }
+  }
+
+  const totalScore = Math.min(100, Math.round(titlePoints + brandPoints + pricePoints));
+
+  let confidence: 'high' | 'medium' | 'low' = 'low';
+  if (totalScore >= 70) {
+    confidence = 'high';
+  } else if (totalScore >= 45) {
+    confidence = 'medium';
+  }
+
+  return {
+    score: totalScore,
+    confidence,
+    titleJaccard: Number(jaccard.toFixed(3)),
+    brandMatched,
+    priceDeltaPercent,
+  };
+}
+

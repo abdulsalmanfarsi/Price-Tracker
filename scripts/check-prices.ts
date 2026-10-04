@@ -56,9 +56,14 @@ interface PlatformCircuitBreaker {
   state: 'closed' | 'open' | 'half_open';
 }
 
-const CIRCUIT_TRIP_THRESHOLD = 3;
+const CIRCUIT_TRIP_THRESHOLD = 5;
 const CIRCUIT_COOLDOWN_MS = 5 * 60 * 1000; // 5-minute cooldown before probe
 const platformCircuitBreakers = new Map<string, PlatformCircuitBreaker>();
+
+export function resetPlatformCircuit(platform: string) {
+  platformCircuitBreakers.delete(platform);
+  console.log(`🔄 Circuit breaker for [${platform.toUpperCase()}] manually RESET.`);
+}
 
 export function checkPlatformCircuit(platform: string): { isTripped: boolean; reason?: string } {
   const cb = platformCircuitBreakers.get(platform);

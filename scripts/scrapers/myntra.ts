@@ -83,7 +83,46 @@ export function extractFromMyntraHtml(html: string): ScrapeResult | null {
     };
   }
 
-  // Check Tier 2: Full-document regex on window.__myx.pdpData
+  // Check Tier 2: Extract directly from window.__myx or full-document regex
+  const myxScriptMatch = html.match(/<script[^>]*>\s*window\.__myx\s*=\s*(\{[\s\S]*?\});?\s*<\/script>/i);
+  if (myxScriptMatch && myxScriptMatch[1]) {
+    try {
+      const myxObj = JSON.parse(myxScriptMatch[1]);
+      const pdp = myxObj?.pdpData;
+      if (pdp) {
+        const pVal =
+          pdp.price?.discounted ??
+          pdp.discountedPrice ??
+          pdp.price?.mrp ??
+          pdp.mrp;
+        const numP = typeof pVal === 'number' ? pVal : parsePrice(String(pVal || ''));
+        if (numP && numP > 0) {
+          const brandName = pdp.brand?.name ? `${pdp.brand.name} ` : '';
+          const pTitle = pdp.name ? `${brandName}${pdp.name}` : jsonTitle || 'Myntra Product';
+          const pImg =
+            pdp.media?.albums?.[0]?.images?.[0]?.src ||
+            pdp.media?.albums?.[0]?.images?.[0]?.imageURL ||
+            jsonImg;
+          const pOutOfStock =
+            Boolean(pdp.serviceability?.outOfStock) ||
+            (Array.isArray(pdp.sizes) && pdp.sizes.length > 0 && pdp.sizes.every((s: any) => s.available === false));
+
+          return {
+            success: true,
+            title: pTitle,
+            price: numP,
+            originalPrice: pdp.mrp ? Number(pdp.mrp) : undefined,
+            imageUrl: pImg,
+            currency: 'INR',
+            isOutOfStock: pOutOfStock || isOutOfStock,
+          };
+        }
+      }
+    } catch {
+      // If full JSON parse fails due to complex string escaping, continue to regex fallback
+    }
+  }
+
   const priceObjMatch =
     html.match(/"price"\s*:\s*\{[^}]*"discounted"\s*:\s*(\d+)/i) ||
     html.match(/"price"\s*:\s*\{[^}]*"mrp"\s*:\s*(\d+)/i);
@@ -182,13 +221,27 @@ export function extractFromMyntraHtml(html: string): ScrapeResult | null {
 export async function scrapeMyntra(url: string): Promise<ScrapeResult> {
   const styleId = extractMyntraStyleId(url);
   const targetUrls: string[] = [url];
-  if (styleId) {
+  if (styleId && !url.endsWith(`/${styleId}`)) {
     targetUrls.push(`https://www.myntra.com/${styleId}`);
-    targetUrls.push(`https://www.myntra.com/dpl?skuId=${styleId}`);
   }
 
   // Multi-Strategy HTTP Pipeline with Akamai Bot Manager Bypass Headers
   const headerStrategies: Array<{ name: string; headers: Record<string, string> }> = [
+    {
+      name: 'Desktop Browser with Navigation Headers',
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-IN,en;q=0.9',
+        'Referer': 'https://www.myntra.com/',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'same-origin',
+        'Sec-Fetch-User': '?1',
+      },
+    },
     {
       name: 'Mobile Browser (Akamai Datacenter Bypass)',
       headers: {
@@ -209,28 +262,13 @@ export async function scrapeMyntra(url: string): Promise<ScrapeResult> {
         'Referer': 'https://www.myntra.com/',
       },
     },
-    {
-      name: 'Desktop Browser with Navigation Headers',
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-IN,en;q=0.9',
-        'Referer': 'https://www.myntra.com/',
-        'Upgrade-Insecure-Requests': '1',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'same-origin',
-        'Sec-Fetch-User': '?1',
-      },
-    },
   ];
 
   for (const targetUrl of targetUrls) {
     for (const strat of headerStrategies) {
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 9000);
+        const timeout = setTimeout(() => controller.abort(), 6000);
         const res = await fetch(targetUrl, {
           headers: strat.headers,
           redirect: 'follow',

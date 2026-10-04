@@ -28,6 +28,37 @@ export interface Product {
   last_error_at?: string | null;
   price_source?: 'server_scrape' | 'browser_extension' | 'manual';
   version?: number;
+  group_id?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductGroup {
+  id: string;
+  user_id?: string | null;
+  title: string;
+  search_query?: string | null;
+  best_price?: number | null;
+  best_platform?: Platform | null;
+  best_url?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CrossPlatformSuggestion {
+  id: string;
+  product_id: string;
+  group_id?: string | null;
+  user_id?: string | null;
+  platform: Platform;
+  title: string;
+  price: number;
+  original_price?: number;
+  image_url?: string;
+  product_url: string;
+  similarity_score: number;
+  confidence: 'high' | 'medium' | 'low';
+  status: 'pending' | 'accepted' | 'rejected';
   created_at: string;
   updated_at: string;
 }
@@ -75,6 +106,7 @@ export type ScrapeErrorCode =
 export interface ScrapeResult {
   success: boolean;
   price?: number;
+  originalPrice?: number;
   title?: string;
   imageUrl?: string;
   currency?: string;
